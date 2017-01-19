@@ -55,48 +55,43 @@ __global__ void matrixMulCUDA()
 
 __global__ void matrixMulCUDASharedMemory()
 {
-    //Define some shared memory for a sub block of matrices A an B
-    __shared__ float As[BLOCK_SIZE][BLOCK_SIZE];
+	__shared__ float As[BLOCK_SIZE][BLOCK_SIZE];
 	__shared__ float Bs[BLOCK_SIZE][BLOCK_SIZE];
-    
+
 	// Block index
 	int bx = blockIdx.x;
 	int by = blockIdx.y;
 	int tx = threadIdx.x;
 	int ty = threadIdx.y;
-    //Running sum of product of A and B matrices
-    float Csub = 0;
- 
-	//iterate through the number of sub matrices of A and B
+	float Csub = 0;
+
 	for (int i = 0; i < NUM_SUBS; i++){
-		//TODO: Calculate indices of A and B matrix required to load the shared block of memory
-        int a_x;
-		int a_y;
-		int b_x;
-		int b_y;
-        
-        //TODO: Each thread should load a single element of sub block of matrices A an B into shared memory
-        
-        // Sync to ensure sub matrix is fully loaded
+		// Calculate indices of A and B matrix required to load the shared block of memory
+		int a_x = (i*BLOCK_SIZE) + tx;
+		int a_y = (by*BLOCK_SIZE) + ty;
+		int b_x = (bx*BLOCK_SIZE) + tx;
+		int b_y = (i*BLOCK_SIZE) + ty;
+
+		As[ty][tx] = d_A[a_y][a_x];		// global memory load with stride of 1, SM bank with stride of 1 :-)
+		Bs[ty][tx] = d_B[b_y][b_x];		// global memory load with stride of 1, SM bank with stride of 1 :-)
+
+		// Sync to ensure sub matrix is fully loaded
 		__syncthreads();
-        
-        //TODO: sum products of A and B sub matrices
+
+		// sum products of A and B sub matrices
 		for (int k = 0; k < BLOCK_SIZE; ++k)
 		{
-			
+			Csub += As[ty][k] * Bs[k][tx];		// conflict free loads regardless of BLOCK_SIZE due to bradcast read and stride of 1
 		}
-        
-        // Sync to prevent run ahead (blocks loading new SM values before others have completed)
+
+		// Sync to prevent run ahead (blocks loading new SM values before others have completed)
 		__syncthreads();
-        
 	}
 
-    //TODO: caluclate the indices of sub matrix C
-	int c_x;
-	int c_y;
-    
 	// Store the product value of C matrix
-	d_C[c_y][c_x] = Csub;
+	int c_x = (bx*BLOCK_SIZE) + tx;
+	int c_y = (by*BLOCK_SIZE) + ty;
+	d_C[c_y][c_x] = Csub;	// global memory load with stride of 1 :-)
 }
 
 
@@ -143,9 +138,9 @@ int main(int argc, char **argv)
 	cudaEventRecord(start);
 	
     
-    matrixMulCUDA << < grid, threads >> >();
-    //TODO: Comment out the above line and complete the shared memory version of the kernel
-    //matrixMulCUDASharedMemory << < grid, threads >> >();
+    //matrixMulCUDA << < grid, threads >> >();
+    //Comment out the above line and complete the shared memory version of the kernel
+    matrixMulCUDASharedMemory << < grid, threads >> >();
     
 	cudaEventRecord(stop);
 	cudaEventSynchronize(stop);
