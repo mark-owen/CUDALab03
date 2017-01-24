@@ -76,7 +76,6 @@ __global__ void ray_trace(uchar4 *image, Sphere *d_s) {
 
 // Exercise 2.2)
 __constant__ Sphere d_const_s[MAX_SPHERES];
-__constant__ unsigned int d_sphere_count;
 //__global__ void ray_trace_constant(???){ ... }
 
 /* Host code */
