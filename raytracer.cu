@@ -29,6 +29,8 @@ struct Sphere {
 
 /* Device Code */
 
+__constant__ unsigned int d_sphere_count;
+
 __device__ float sphere_intersect(Sphere *s, float ox, float oy, float *n) {
 	float dx = ox - s->x;
 	float dy = oy - s->y;
@@ -54,7 +56,6 @@ __device__ float sphere_intersect_read_only(Sphere const* __restrict__ s, float 
 }
 
 __constant__ Sphere d_const_s[MAX_SPHERES];
-__constant__ unsigned int d_sphere_count;
 
 __global__ void ray_trace(uchar4 *image, Sphere *d_s) {
 	// map from threadIdx/BlockIdx to pixel position
