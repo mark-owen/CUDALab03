@@ -12,7 +12,7 @@
 #include "device_launch_parameters.h"
 
 #define IMAGE_DIM 2048
-#define MAX_SPHERES 16
+#define MAX_SPHERES 128
 
 #define rnd( x ) (x * rand() / RAND_MAX)
 #define INF     2e10f
@@ -104,7 +104,34 @@ __global__ void ray_trace_read_only(uchar4 *image, Sphere const* __restrict__ d_
 
 // Exercise 2.2)
 __constant__ Sphere d_const_s[MAX_SPHERES];
-//__global__ void ray_trace_constant(???){ ... }
+__global__ void ray_trace_constant(uchar4 *image) {
+  // map from threadIdx/BlockIdx to pixel position
+  int x = threadIdx.x + blockIdx.x * blockDim.x;
+  int y = threadIdx.y + blockIdx.y * blockDim.y;
+  int offset = x + y * blockDim.x * gridDim.x;
+  float   ox = (x - IMAGE_DIM / 2.0f);
+  float   oy = (y - IMAGE_DIM / 2.0f);
+  
+  float   r = 0, g = 0, b = 0;
+  float   maxz = -INF;
+  for (int i = 0; i<d_sphere_count; i++) {
+    Sphere const* s = &d_const_s[i];
+    float   n;
+    float   t = sphere_intersect(s, ox, oy, &n);
+    if (t > maxz) {
+      float fscale = n;
+      r = s->r * fscale;
+      g = s->g * fscale;
+      b = s->b * fscale;
+      maxz = t;
+    }
+  }
+  
+  image[offset].x = (int)(r * 255);
+  image[offset].y = (int)(g * 255);
+  image[offset].z = (int)(b * 255);
+  image[offset].w = 255;
+}
 
 /* Host code */
 
@@ -172,13 +199,13 @@ int main(void) {
 	cudaEventElapsedTime(&timing_data.y, start, stop);
 	checkCUDAError("kernel (read-only)");
 
-    //Exercise 2.2) generate a image from the sphere data (using constant cache)
-    //cudaEventRecord(start, 0);
-    //ray_trace_constant << <blocksPerGrid, threadsPerBlock >> >(???);
-    //cudaEventRecord(stop, 0);
-    //cudaEventSynchronize(stop);
-    //cudaEventElapsedTime(&timing_data.z, start, stop);
-    //checkCUDAError("kernel (const)");
+	//Exercise 2.2) generate a image from the sphere data (using constant cache)
+	cudaEventRecord(start, 0);
+	ray_trace_constant << <blocksPerGrid, threadsPerBlock >> >(d_image);
+	cudaEventRecord(stop, 0);
+	cudaEventSynchronize(stop);
+	cudaEventElapsedTime(&timing_data.z, start, stop);
+	checkCUDAError("kernel (const)");
 
 	// copy the image back from the GPU for output to file
 	cudaMemcpy(h_image, d_image, image_size, cudaMemcpyDeviceToHost);
