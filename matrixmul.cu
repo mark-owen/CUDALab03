@@ -68,23 +68,31 @@ __global__ void matrixMulCUDASharedMemory()
   //Running sum of product of A and B matrices
   float Csub = 0;
  
+  // x and y of the corner of the matrix we are calculating
+  int x = bx*BLOCK_SIZE ;
+  int y = by*BLOCK_SIZE ;
+
   //iterate through the number of sub matrices of A and B
   for (int i = 0; i < NUM_SUBS; i++){
-    //TODO: Calculate indices of A and B matrix required to load the shared block of memory
-    int a_x;
-    int a_y;
-    int b_x;
-    int b_y;
+    // Calculate indices of A and B matrix required to load the shared block of memory
+    int a_x = BLOCK_SIZE*i + tx;
+    int a_y = y + ty;
+    int b_x = x + tx;
+    int b_y = BLOCK_SIZE*i + ty;
     
-    //TODO: Each thread should load a single element of sub block of matrices A an B into shared memory
-    
+    //Each thread should load a single element of sub block of matrices A an B into shared memory
+
+    // load the element corresponding to our thread ID, using the indices calculated above
+    As[ty][tx] = d_A[a_y][a_x];
+    Bs[ty][tx] = d_B[b_y][b_x];
+
     // Sync to ensure sub matrix is fully loaded
     __syncthreads();
     
-    //TODO: sum products of A and B sub matrices
+    // sum products of A and B sub matrices
     for (int k = 0; k < BLOCK_SIZE; ++k)
       {
-	
+	Csub += As[ty][k] * Bs[k][tx];
       }
     
     // Sync to prevent run ahead (blocks loading new SM values before others have completed)
@@ -93,8 +101,8 @@ __global__ void matrixMulCUDASharedMemory()
   }
   
   //TODO: caluclate the indices of sub matrix C
-  int c_x;
-  int c_y;
+  int c_x = x + tx;
+  int c_y = y + ty;
   
   // Store the product value of C matrix
   d_C[c_y][c_x] = Csub;
@@ -114,6 +122,8 @@ int main(int argc, char **argv)
 	if (A_WIDTH != B_HEIGHT){
 		printf("Error: A_HEIGHT and B_WIDTH do not match\n");
 	}
+
+	printf("NUM_SUBS = %d\n", NUM_SUBS);
 
 	mem_size_A = sizeof(float)* A_WIDTH* A_HEIGHT;
 	mem_size_B = sizeof(float)* B_WIDTH* B_HEIGHT;
@@ -144,9 +154,9 @@ int main(int argc, char **argv)
 	cudaEventRecord(start);
 	
     
-    matrixMulCUDA << < grid, threads >> >();
-    //TODO: Comment out the above line and complete the shared memory version of the kernel
-    //matrixMulCUDASharedMemory << < grid, threads >> >();
+	//matrixMulCUDA << < grid, threads >> >();
+	//TODO: Comment out the above line and complete the shared memory version of the kernel
+	matrixMulCUDASharedMemory << < grid, threads >> >();
     
 	cudaEventRecord(stop);
 	cudaEventSynchronize(stop);
@@ -199,7 +209,7 @@ int matrixMulTest(float C[C_HEIGHT][C_WIDTH], float Cref[C_HEIGHT][C_WIDTH])
 
 	for (y = 0; y < C_HEIGHT; y++){
 		for (x = 0; x < C_WIDTH; x++){
-			if (C[y][x] != Cref[y][x]){
+		  if (fabs(C[y][x] - Cref[y][x])>0.01){
 				errors++;
 				printf("Device item c[%d][%d] = %f does not mach host result %f\n", y, x, C[y][x], Cref[y][x]);
 			}
