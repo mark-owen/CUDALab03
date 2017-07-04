@@ -1,3 +1,4 @@
+// -*-c-*-
 /*
 * Source code for this lab class is modified from the book CUDA by Example and provided by permission of NVIDIA Corporation
 */
@@ -29,7 +30,7 @@ struct Sphere {
 
 __constant__ unsigned int d_sphere_count;
 
-__device__ float sphere_intersect(Sphere *s, float ox, float oy, float *n) {
+__device__ float sphere_intersect(Sphere const* __restrict__ s, float ox, float oy, float *n) {
 	float dx = ox - s->x;
 	float dy = oy - s->y;
 	float radius = s->radius;
@@ -72,7 +73,34 @@ __global__ void ray_trace(uchar4 *image, Sphere *d_s) {
 }
 
 // Exercise 2.1)
-//__global__ void ray_trace_read_only(???) { ... }
+__global__ void ray_trace_read_only(uchar4 *image, Sphere const* __restrict__ d_s) { 
+  // map from threadIdx/BlockIdx to pixel position
+  int x = threadIdx.x + blockIdx.x * blockDim.x;
+  int y = threadIdx.y + blockIdx.y * blockDim.y;
+  int offset = x + y * blockDim.x * gridDim.x;
+  float   ox = (x - IMAGE_DIM / 2.0f);
+  float   oy = (y - IMAGE_DIM / 2.0f);
+  
+  float   r = 0, g = 0, b = 0;
+  float   maxz = -INF;
+  for (int i = 0; i<d_sphere_count; i++) {
+    Sphere const* __restrict__ s = &d_s[i];
+    float   n;
+    float   t = sphere_intersect(s, ox, oy, &n);
+    if (t > maxz) {
+      float fscale = n;
+      r = s->r * fscale;
+      g = s->g * fscale;
+      b = s->b * fscale;
+      maxz = t;
+    }
+  }
+  
+  image[offset].x = (int)(r * 255);
+  image[offset].y = (int)(g * 255);
+  image[offset].z = (int)(b * 255);
+  image[offset].w = 255;
+}
 
 // Exercise 2.2)
 __constant__ Sphere d_const_s[MAX_SPHERES];
@@ -136,13 +164,13 @@ int main(void) {
 	cudaEventElapsedTime(&timing_data.x, start, stop);
 	checkCUDAError("kernel (normal)");
 
-    //Exercise 2.1) generate a image from the sphere data (using read only cache)
-    //cudaEventRecord(start, 0);
-    //ray_trace_read_only << <blocksPerGrid, threadsPerBlock >> >(???);
-    //cudaEventRecord(stop, 0);
-    //cudaEventSynchronize(stop);
-    //cudaEventElapsedTime(&timing_data.y, start, stop);
-    //checkCUDAError("kernel (read-only)");
+	//Exercise 2.1) generate a image from the sphere data (using read only cache)
+	cudaEventRecord(start, 0);
+	ray_trace_read_only << <blocksPerGrid, threadsPerBlock >> >(d_image, d_s);
+	cudaEventRecord(stop, 0);
+	cudaEventSynchronize(stop);
+	cudaEventElapsedTime(&timing_data.y, start, stop);
+	checkCUDAError("kernel (read-only)");
 
     //Exercise 2.2) generate a image from the sphere data (using constant cache)
     //cudaEventRecord(start, 0);
