@@ -1,3 +1,4 @@
+// -*-c-*-
 #ifndef __CUDACC__
 #define __CUDACC__
 #endif
@@ -55,48 +56,48 @@ __global__ void matrixMulCUDA()
 
 __global__ void matrixMulCUDASharedMemory()
 {
-    //Define some shared memory for a sub block of matrices A an B
-    __shared__ float As[BLOCK_SIZE][BLOCK_SIZE];
-	__shared__ float Bs[BLOCK_SIZE][BLOCK_SIZE];
+  //Define some shared memory for a sub block of matrices A an B
+  __shared__ float As[BLOCK_SIZE][BLOCK_SIZE];
+  __shared__ float Bs[BLOCK_SIZE][BLOCK_SIZE];
     
-	// Block index
-	int bx = blockIdx.x;
-	int by = blockIdx.y;
-	int tx = threadIdx.x;
-	int ty = threadIdx.y;
-    //Running sum of product of A and B matrices
-    float Csub = 0;
+  // Block index
+  int bx = blockIdx.x;
+  int by = blockIdx.y;
+  int tx = threadIdx.x;
+  int ty = threadIdx.y;
+  //Running sum of product of A and B matrices
+  float Csub = 0;
  
-	//iterate through the number of sub matrices of A and B
-	for (int i = 0; i < NUM_SUBS; i++){
-		//TODO: Calculate indices of A and B matrix required to load the shared block of memory
-        int a_x;
-		int a_y;
-		int b_x;
-		int b_y;
-        
-        //TODO: Each thread should load a single element of sub block of matrices A an B into shared memory
-        
-        // Sync to ensure sub matrix is fully loaded
-		__syncthreads();
-        
-        //TODO: sum products of A and B sub matrices
-		for (int k = 0; k < BLOCK_SIZE; ++k)
-		{
-			
-		}
-        
-        // Sync to prevent run ahead (blocks loading new SM values before others have completed)
-		__syncthreads();
-        
-	}
-
-    //TODO: caluclate the indices of sub matrix C
-	int c_x;
-	int c_y;
+  //iterate through the number of sub matrices of A and B
+  for (int i = 0; i < NUM_SUBS; i++){
+    //TODO: Calculate indices of A and B matrix required to load the shared block of memory
+    int a_x;
+    int a_y;
+    int b_x;
+    int b_y;
     
-	// Store the product value of C matrix
-	d_C[c_y][c_x] = Csub;
+    //TODO: Each thread should load a single element of sub block of matrices A an B into shared memory
+    
+    // Sync to ensure sub matrix is fully loaded
+    __syncthreads();
+    
+    //TODO: sum products of A and B sub matrices
+    for (int k = 0; k < BLOCK_SIZE; ++k)
+      {
+	
+      }
+    
+    // Sync to prevent run ahead (blocks loading new SM values before others have completed)
+    __syncthreads();
+    
+  }
+  
+  //TODO: caluclate the indices of sub matrix C
+  int c_x;
+  int c_y;
+  
+  // Store the product value of C matrix
+  d_C[c_y][c_x] = Csub;
 }
 
 
